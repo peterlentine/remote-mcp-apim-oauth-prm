@@ -7,6 +7,8 @@ VS Code → APIM → App Service → Microsoft Graph
    (token1)  (token1)  (token1→OBO→token2)
 ```
 
+![OBO Authentication Flow](obo-auth-flow.svg)
+
 ## Step 1 — VS Code gets token1 (for the MCP app)
 
 VS Code reads the PRM endpoint (`/.well-known/oauth-protected-resource`) which the APIM policy in [mcp-prm.policy.xml](infra/app/apim-mcp/mcp-prm.policy.xml) returns. That document says: go to Azure AD, request scope `{McpClientId}/user_impersonate`. VS Code does this and gets an access token **scoped to the MCP app registration** (audience = `5961eed8-c21f-494c-b5b6-93bc8ed4e055`).
