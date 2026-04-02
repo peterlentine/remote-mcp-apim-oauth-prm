@@ -1,0 +1,37 @@
+sequenceDiagram
+    actor User
+    participant VSCode as VS Code
+    participant AzureAD as Azure AD
+    participant APIM as Azure APIM
+    participant AppService as App Service
+    participant Graph as Microsoft Graph
+
+    User->>VSCode: Ask "who am I?"
+
+    Note over VSCode,AzureAD: Discovery via Protected Resource Metadata
+    VSCode->>APIM: GET /.well-known/oauth-protected-resource
+    APIM-->>VSCode: { resource, authorization_servers, scopes_supported: ["clientId/user_impersonate"] }
+
+    Note over VSCode,AzureAD: Step 1 — Get token1 (scoped to MCP app)
+    VSCode->>AzureAD: Authorization Code + PKCE<br/>scope: {ClientId}/user_impersonate
+    AzureAD-->>VSCode: token1 (audience = MCP ClientId, subject = user)
+
+    Note over APIM: Step 2 — Validate token1
+    VSCode->>APIM: POST /mcp (Authorization: Bearer token1)
+    APIM->>APIM: validate-azure-ad-token<br/>(audience = McpClientId)
+    APIM->>AppService: Forward request with token1
+
+    Note over AppService,AzureAD: Step 3 — OBO Exchange
+    AppService->>AzureAD: Get MI assertion token<br/>(audience = api://AzureADTokenExchange)
+    AzureAD-->>AppService: MI assertion token
+    AppService->>AzureAD: OBO grant<br/>grant_type=jwt-bearer<br/>assertion=token1<br/>client_assertion=MI token<br/>scope=User.Read
+    AzureAD->>AzureAD: Validate FIC:<br/>MI principalId matches subject<br/>in app registration
+    AzureAD-->>AppService: token2 (audience = Graph, subject = user)
+
+    Note over AppService,Graph: Step 4 — Call Graph as the user
+    AppService->>Graph: GET /me (Authorization: Bearer token2)
+    Graph-->>AppService: User profile (name, email, title…)
+
+    AppService-->>APIM: User profile JSON
+    APIM-->>VSCode: User profile JSON
+    VSCode-->>User: Displays profile via Copilot

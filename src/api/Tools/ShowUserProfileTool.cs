@@ -95,8 +95,14 @@ public class ShowUserProfileTool
         }
         catch (AuthenticationFailedException ex)
         {
-            if (ex.InnerException is MsalClaimsChallengeException msalException && 
-                msalException.ErrorCode == "invalid_grant")
+            // MsalUiRequiredException is thrown by MSAL when consent is missing in the OBO flow.
+            // MsalClaimsChallengeException is thrown for CAE claims challenges.
+            // Both indicate the user needs to visit a login/consent URL.
+            bool isConsentRequired = ex.InnerException is MsalUiRequiredException ||
+                (ex.InnerException is MsalClaimsChallengeException msalClaimsEx && 
+                 msalClaimsEx.ErrorCode == "invalid_grant");
+
+            if (isConsentRequired)
             {
                 var loginUrl = GenerateLoginUrl();
                 var consentResponse = new 
